@@ -1,0 +1,49 @@
+# cloudbuild.yaml
+# CI/CD pipeline for deploying the we-demo-service to Cloud Run using Terraform
+
+substitutions:
+  _REGION: "europe-west1"                  # Cloud Run + Terraform region
+  _REPO_REGION: "europe"                   # Artifact Registry multi-region
+  _SERVICE_NAME: "we-demo-service"         # Cloud Run service name
+  _REPO_NAME: "we-curamet-repo"            # Artifact Registry repository name
+  _PREFIX: "we"                            # Prefix for Terraform-managed resources
+
+steps:
+# 1️⃣ Build the Docker image for the service
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    [
+      'build',
+      '-t', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA',
+      '-t', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:latest',
+      '.'
+    ]
+
+# 2️⃣ Push both tags (commit-specific and latest) to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA']
+
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:latest']
+
+# 3️⃣ Initialize and apply Terraform to deploy Cloud Run and infrastructure
+- name: 'hashicorp/terraform:1.8.0'
+  entrypoint: 'sh'
+  args:
+    - '-c'
+    - |
+      cd terraform
+      terraform init -input=false
+      terraform apply -auto-approve -input=false \
+        -var="project=$PROJECT_ID" \
+        -var="region=$_REGION" \
+        -var="prefix=$_PREFIX" \
+        -var="image_uri=$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA"
+
+# 4️⃣ Optional: Log success message (uncomment if needed)
+# - name: 'gcr.io/cloud-builders/gcloud'
+#   args: ['logging', 'write', 'cloud-build', '✅ we-demo-service deployed successfully']
+
+images:
+- '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA'
+- '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:latest'
