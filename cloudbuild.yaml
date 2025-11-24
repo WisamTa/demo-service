@@ -1,15 +1,22 @@
+substitutions:
+  _AR_HOST: "europe-west1-docker.pkg.dev"
+  _AR_REPO: "demo-service"
+  _SERVICE_NAME: "demo-service"
+  _REGION: "europe-west1"
+
 steps:
+
   # 1) Install deps
   - name: "gcr.io/cloud-builders/npm"
     id: "npm install"
     args: ["ci"]
 
-  # 2) Build TS → JS
+  # 2) Build app
   - name: "gcr.io/cloud-builders/npm"
     id: "npm build"
     args: ["run", "build"]
 
-  # 3) Build Docker image
+  # 3) Build docker image
   - name: "gcr.io/cloud-builders/docker"
     id: "docker build"
     args:
@@ -17,32 +24,40 @@ steps:
         "build",
         "-t",
         "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}",
-        ".",
+        "."
       ]
 
-  # 4) Push image to Artifact Registry
+  # 4) Push image
   - name: "gcr.io/cloud-builders/docker"
     id: "docker push"
     args:
       [
         "push",
-        "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}",
+        "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}"
       ]
 
-  # 5) Deploy to Cloud Run
-  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
-    id: "deploy to cloud run"
-    entrypoint: gcloud
+  # 5) Terraform init
+  - name: "hashicorp/terraform:1.6"
+    id: "terraform init"
+    entrypoint: /bin/sh
     args:
-      [
-        "run",
-        "deploy",
-        "${_SERVICE_NAME}",
-        "--image",
-        "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}",
-        "--region",
-        "${_REGION}",
-        "--platform",
-        "managed",
-        "--allow-unauthenticated",
-      ]
+      - "-c"
+      - |
+        cd terraform
+        terraform init
+
+  # 6) Terraform apply with new image
+  - name: "hashicorp/terraform:1.6"
+    id: "terraform apply"
+    entrypoint: /bin/sh
+    args:
+      - "-c"
+      - |
+        cd terraform
+        terraform apply \
+          -auto-approve \
+          -var region=${_REGION} \
+          -var image="${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}"
+
+images:
+  - "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}"
