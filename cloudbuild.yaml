@@ -1,49 +1,68 @@
 # cloudbuild.yaml
-# CI/CD pipeline for deploying the we-demo-service to Cloud Run using Terraform
+# CI/CD for demo-service → Cloud Run (project: curamet-onboarding)
 
 substitutions:
-  _REGION: "europe-west1"                  # Cloud Run + Terraform region
-  _REPO_REGION: "europe"                   # Artifact Registry multi-region
-  _SERVICE_NAME: "we-demo-service"         # Cloud Run service name
-  _REPO_NAME: "we-curamet-repo"            # Artifact Registry repository name
-  _PREFIX: "we"                            # Prefix for Terraform-managed resources
+  _AR_HOST: "europe-west1-docker.pkg.dev" # change if you use a different region
+  _AR_REPO: "demo-service"
+  _SERVICE_NAME: "demo-service"
+  _REGION: "europe-west1"
+
+options:
+  logging: CLOUD_LOGGING_ONLY
 
 steps:
-# 1️⃣ Build the Docker image for the service
-- name: 'gcr.io/cloud-builders/docker'
-  args:
-    [
-      'build',
-      '-t', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA',
-      '-t', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:latest',
-      '.'
-    ]
+  # 1) Install deps
+  - name: "gcr.io/cloud-builders/npm"
+    id: "npm install"
+    args: ["ci"]
 
-# 2️⃣ Push both tags (commit-specific and latest) to Artifact Registry
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA']
+  # 2) Run tests (change/remove if needed)
+  - name: "gcr.io/cloud-builders/npm"
+    id: "npm test"
+    args: ["test"]
 
-- name: 'gcr.io/cloud-builders/docker'
-  args: ['push', '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:latest']
+  # 3) Build TS → JS
+  - name: "gcr.io/cloud-builders/npm"
+    id: "npm build"
+    args: ["run", "build"]
 
-# 3️⃣ Initialize and apply Terraform to deploy Cloud Run and infrastructure
-- name: 'hashicorp/terraform:1.8.0'
-  entrypoint: 'sh'
-  args:
-    - '-c'
-    - |
-      cd terraform
-      terraform init -input=false
-      terraform apply -auto-approve -input=false \
-        -var="project=$PROJECT_ID" \
-        -var="region=$_REGION" \
-        -var="prefix=$_PREFIX" \
-        -var="image_uri=$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA"
+  # 4) Build Docker image
+  - name: "gcr.io/cloud-builders/docker"
+    id: "docker build"
+    args:
+      [
+        "build",
+        "-t",
+        "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}",
+        ".",
+      ]
 
-# 4️⃣ Optional: Log success message (uncomment if needed)
-# - name: 'gcr.io/cloud-builders/gcloud'
-#   args: ['logging', 'write', 'cloud-build', '✅ we-demo-service deployed successfully']
+  # 5) Push image to Artifact Registry
+  - name: "gcr.io/cloud-builders/docker"
+    id: "docker push"
+    args:
+      [
+        "push",
+        "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}",
+      ]
+
+  # 6) Deploy to Cloud Run
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "deploy to cloud run"
+    entrypoint: gcloud
+    args:
+      [
+        "run",
+        "deploy",
+        "${_SERVICE_NAME}",
+        "--image",
+        "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}",
+        "--region",
+        "${_REGION}",
+        "--platform",
+        "managed",
+        "--allow-unauthenticated",
+      ]
 
 images:
-- '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:$SHORT_SHA'
-- '$_REPO_REGION-docker.pkg.dev/$PROJECT_ID/$_REPO_NAME/$_SERVICE_NAME:latest'
+  - "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}"
