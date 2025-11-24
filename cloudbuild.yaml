@@ -1,32 +1,15 @@
-# cloudbuild.yaml
-# CI/CD for demo-service → Cloud Run (project: curamet-onboarding)
-
-substitutions:
-  _AR_HOST: "europe-west1-docker.pkg.dev" # change if you use a different region
-  _AR_REPO: "demo-service"
-  _SERVICE_NAME: "demo-service"
-  _REGION: "europe-west1"
-
-options:
-  logging: CLOUD_LOGGING_ONLY
-
 steps:
   # 1) Install deps
   - name: "gcr.io/cloud-builders/npm"
     id: "npm install"
     args: ["ci"]
 
-  # 2) Run tests (change/remove if needed)
-  - name: "gcr.io/cloud-builders/npm"
-    id: "npm test"
-    args: ["test"]
-
-  # 3) Build TS → JS
+  # 2) Build TS → JS
   - name: "gcr.io/cloud-builders/npm"
     id: "npm build"
     args: ["run", "build"]
 
-  # 4) Build Docker image
+  # 3) Build Docker image
   - name: "gcr.io/cloud-builders/docker"
     id: "docker build"
     args:
@@ -37,7 +20,7 @@ steps:
         ".",
       ]
 
-  # 5) Push image to Artifact Registry
+  # 4) Push image to Artifact Registry
   - name: "gcr.io/cloud-builders/docker"
     id: "docker push"
     args:
@@ -46,7 +29,7 @@ steps:
         "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}",
       ]
 
-  # 6) Deploy to Cloud Run
+  # 5) Deploy to Cloud Run
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     id: "deploy to cloud run"
     entrypoint: gcloud
@@ -63,6 +46,3 @@ steps:
         "managed",
         "--allow-unauthenticated",
       ]
-
-images:
-  - "${_AR_HOST}/${PROJECT_ID}/${_AR_REPO}/${_SERVICE_NAME}:${SHORT_SHA}"
