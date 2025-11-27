@@ -24,4 +24,3 @@ jobs:
 
       - name: Lint (optional)
         run: npm run lint --if-present
-
