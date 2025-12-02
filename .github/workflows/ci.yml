@@ -37,22 +37,17 @@ jobs:
       # ------------------------
       # Terraform section
       # ------------------------
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Terraform Init & Plan
+        working-directory: terraform
+        run: |
+          terraform init -backend-config="environments/dev/backend.conf"
+          terraform plan -var-file="environments/dev/terraform.tfvars"
       
 
-
-
-      # Init
-      - name: Terraform Init
-        working-directory: terraform/environments/dev    # adjust if needed
-        run: terraform init -backend=false
-
-      # Validate
-      - name: Terraform Validate
-        working-directory: terraform/environments/dev
-        run: terraform validate
-
-      # Plan (safe, no apply)
-      - name: Terraform Plan
-        working-directory: terraform/environments/dev
-        run: terraform plan -input=false
 
