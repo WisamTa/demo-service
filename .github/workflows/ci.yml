@@ -24,9 +24,15 @@ jobs:
 
       - name: Lint (optional)
         run: npm run lint --if-present
-        
-      - name: Test (optional)
-        run: npm test --if-present
+
+      - name: Run Tests (optional)
+        run: |
+          if npm run | grep -q " test"; then
+            npm test
+          else
+            echo "No test script defined — skipping tests"
+          fi
 
       - name: Build
         run: npm run build --if-present
+        
