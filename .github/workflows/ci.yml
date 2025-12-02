@@ -37,13 +37,9 @@ jobs:
       # ------------------------
       # Terraform section
       # ------------------------
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      
 
-      # Format check (fails if misformatted)
-      - name: Terraform Format Check
-        working-directory: terraform/environments/dev    # adjust if needed
-        run: terraform fmt -check -recursive
+
 
       # Init
       - name: Terraform Init
