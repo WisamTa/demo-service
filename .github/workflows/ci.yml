@@ -41,6 +41,18 @@ jobs:
       - name: Build
         run: npm run build --if-present
 
+
+
+              # ------------------------
+      # Authenticate to GCP using Workload Identity Federation (WIF)
+      # ------------------------
+      - name: Authenticate to GCP (WIF)
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+          export_default_credentials: true
+
       # ------------------------
       # Terraform section
       # ------------------------
