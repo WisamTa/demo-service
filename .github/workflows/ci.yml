@@ -50,10 +50,12 @@ jobs:
       # ------------------------
       # Setup gcloud
       # ------------------------
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: curamet-onboarding
+
+      - name: Set GCP Project
+        run: |
+         gcloud --quiet auth activate-service-account --key-file=${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+         gcloud --quiet config set project curamet-onboarding
+
 
       # ------------------------
       # Terraform section
