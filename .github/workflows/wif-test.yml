@@ -1,0 +1,38 @@
+name: WIF Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  auth-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate (WIF)
+        uses: google-github-actions/auth@v1
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+          export_default_credentials: true
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: curamet-onboarding
+
+      - name: Show active account
+        run: gcloud auth list --filter=status:ACTIVE --format="value(account)"
+
+      - name: Verify ADC (python)
+        run: |
+          python - <<'PY'
+          from google.auth import default
+          creds, project = default()
+          print("ADC project:", project)
+          print("Creds type:", type(creds).__name__)
+          PY
