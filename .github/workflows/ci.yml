@@ -48,22 +48,13 @@ jobs:
           service_account: ${{ secrets.GCP_SA_EMAIL }}
           create_credentials_file: true
           cleanup_credentials: false
+          access_token_lifetime: '3600s'
 
-      # ------------------------
-      # Setup gcloud (uses credentials from the auth step)
-      # ------------------------
-      - name: Setup gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      # Verify authentication
-      - name: Verify GCP Authentication
-        run: gcloud auth list --filter=status:ACTIVE --format="value(account)"
-
-      # Set credentials for Terraform explicitly
-      - name: Export credentials for Terraform
+      # Set credentials file for Terraform and tools
+      - name: Export GCP Credentials
         run: |
-          export GOOGLE_APPLICATION_CREDENTIALS="${{ steps.auth.outputs.credentials_file_path }}"
-          echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS" >> $GITHUB_ENV
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ steps.auth.outputs.credentials_file_path }}" >> $GITHUB_ENV
+          echo "CLOUDSDK_CORE_PROJECT=curamet-onboarding" >> $GITHUB_ENV
 
       # ------------------------
       # Terraform section
@@ -76,7 +67,5 @@ jobs:
       - name: Terraform Init & Plan
         working-directory: terraform
         run: |
-          # Use gcloud-managed credentials instead of file
-          gcloud config set project curamet-onboarding
           terraform init -backend-config="environments/dev/backend.conf"
           terraform plan -var-file="environments/dev/terraform.tfvars" -input=false -no-color
