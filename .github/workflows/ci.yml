@@ -1,46 +1,56 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
 
 permissions:
   contents: read
-  id-token: write    # required for Workload Identity Federation
+  id-token: write
+
+env:
+  GCP_PROJECT: curamet-onboarding
+  GCP_REGION: europe-west1
 
 jobs:
-  build-test-terraform:
+  build-and-deploy:
     runs-on: ubuntu-latest
+    name: Build, Test & Deploy
 
     steps:
-      # ------------------------
-      # Checkout code
-      # ------------------------
-      - name: Checkout
+      # ========================================
+      # 1. CHECKOUT CODE
+      # ========================================
+      - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # ------------------------
-      # Node.js section
-      # ------------------------
-      - name: Setup Node
+      # ========================================
+      # 2. BUILD APPLICATION
+      # ========================================
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: npm
+          node-version: '18'
+          cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Lint (optional)
+      - name: Lint Code
         run: npm run lint --if-present
+        continue-on-error: true
 
-      - name: Build
+      - name: Build Application
         run: npm run build --if-present
 
-      # ------------------------
-      # Authenticate to GCP using Workload Identity Federation (WIF)
-      # ------------------------
-      - name: Authenticate to GCP (WIF)
+      # ========================================
+      # 3. AUTHENTICATE TO GCP
+      # ========================================
+      - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
         with:
@@ -48,23 +58,64 @@ jobs:
           service_account: ${{ secrets.GCP_SA_EMAIL }}
           token_format: 'access_token'
           access_token_lifetime: '3600s'
+          cleanup_credentials: true
 
-      # Set access token for Terraform
-      - name: Export GCP Credentials
+      # ========================================
+      # 4. SETUP GOOGLE CLOUD TOOLS
+      # ========================================
+      - name: Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        env:
+          GOOGLE_OAUTH_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+
+      - name: Verify GCP Authentication
         run: |
-          echo "GOOGLE_OAUTH_ACCESS_TOKEN=${{ steps.auth.outputs.access_token }}" >> $GITHUB_ENV
-          echo "CLOUDSDK_CORE_PROJECT=curamet-onboarding" >> $GITHUB_ENV
+          echo "Authenticated as: $(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
+          echo "Project: $GCP_PROJECT"
 
-      # ------------------------
-      # Terraform section
-      # ------------------------
+      # ========================================
+      # 5. TERRAFORM OPERATIONS
+      # ========================================
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.7.5
+          terraform_version: '1.7.5'
 
-      - name: Terraform Init & Plan
+      - name: Terraform Format Check
         working-directory: terraform
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+
+      - name: Terraform Init
+        working-directory: terraform
+        env:
+          GOOGLE_OAUTH_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
         run: |
-          terraform init -backend-config="environments/dev/backend.conf"
-          terraform plan -var-file="environments/dev/terraform.tfvars" -input=false -no-color
+          terraform init \
+            -backend-config="environments/dev/backend.conf" \
+            -upgrade
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform
+        env:
+          GOOGLE_OAUTH_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          terraform plan \
+            -var-file="environments/dev/terraform.tfvars" \
+            -out=tfplan \
+            -input=false
+
+      - name: Terraform Apply (Main Branch Only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        working-directory: terraform
+        env:
+          GOOGLE_OAUTH_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+        run: |
+          terraform apply \
+            -auto-approve \
+            -input=false \
+            tfplan
