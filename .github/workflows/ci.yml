@@ -46,8 +46,8 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
-          token_format: 'access_token'
-          access_token_lifetime: '3600s'
+          create_credentials_file: true
+          cleanup_credentials: false
 
       # ------------------------
       # Setup gcloud (uses credentials from the auth step)
@@ -55,19 +55,15 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      # Set project without triggering token refresh
-      - name: Configure gcloud project
-        run: |
-          gcloud config set project curamet-onboarding --installation
-
       # Verify authentication
       - name: Verify GCP Authentication
         run: gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
-      # Set access token for Terraform
-      - name: Set access token for Terraform
+      # Set credentials for Terraform explicitly
+      - name: Export credentials for Terraform
         run: |
-          echo "GOOGLE_OAUTH_ACCESS_TOKEN=${{ steps.auth.outputs.access_token }}" >> $GITHUB_ENV
+          export GOOGLE_APPLICATION_CREDENTIALS="${{ steps.auth.outputs.credentials_file_path }}"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$GOOGLE_APPLICATION_CREDENTIALS" >> $GITHUB_ENV
 
       # ------------------------
       # Terraform section
@@ -80,7 +76,7 @@ jobs:
       - name: Terraform Init & Plan
         working-directory: terraform
         env:
-          GOOGLE_OAUTH_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: |
           terraform init -backend-config="environments/dev/backend.conf"
           terraform plan -var-file="environments/dev/terraform.tfvars" -input=false -no-color
