@@ -75,8 +75,8 @@ jobs:
 
       - name: Terraform Init & Plan
         working-directory: terraform
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: |
+          # Use gcloud-managed credentials instead of file
+          gcloud config set project curamet-onboarding
           terraform init -backend-config="environments/dev/backend.conf"
           terraform plan -var-file="environments/dev/terraform.tfvars" -input=false -no-color
