@@ -46,14 +46,13 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
-          create_credentials_file: true
-          cleanup_credentials: false
+          token_format: 'access_token'
           access_token_lifetime: '3600s'
 
-      # Set credentials file for Terraform and tools
+      # Set access token for Terraform
       - name: Export GCP Credentials
         run: |
-          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ steps.auth.outputs.credentials_file_path }}" >> $GITHUB_ENV
+          echo "GOOGLE_OAUTH_ACCESS_TOKEN=${{ steps.auth.outputs.access_token }}" >> $GITHUB_ENV
           echo "CLOUDSDK_CORE_PROJECT=curamet-onboarding" >> $GITHUB_ENV
 
       # ------------------------
