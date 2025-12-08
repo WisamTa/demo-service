@@ -67,6 +67,10 @@ jobs:
           echo "Authenticated as: $(gcloud auth list --filter=status:ACTIVE --format='value(account)')"
           echo "Project: $GCP_PROJECT"
 
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker europe-docker.pkg.dev
+
       # ========================================
       # 5. TERRAFORM OPERATIONS
       # ========================================
