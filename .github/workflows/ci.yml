@@ -46,6 +46,8 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
+          create_credentials_file: true
+          cleanup_credentials: false
 
       # ------------------------
       # Setup gcloud (uses credentials from the auth step)
@@ -62,6 +64,11 @@ jobs:
       - name: Verify GCP Authentication
         run: gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
+      # Export credentials for Terraform
+      - name: Export GCP credentials for Terraform
+        run: |
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ steps.auth.outputs.credentials_file_path }}" >> $GITHUB_ENV
+
       # ------------------------
       # Terraform section
       # ------------------------
@@ -72,6 +79,8 @@ jobs:
 
       - name: Terraform Init & Plan
         working-directory: terraform
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.auth.outputs.credentials_file_path }}
         run: |
           terraform init -backend-config="environments/dev/backend.conf"
           terraform plan -var-file="environments/dev/terraform.tfvars" -input=false -no-color
