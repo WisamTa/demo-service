@@ -52,10 +52,11 @@ jobs:
       # ------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: curamet-onboarding
 
-      # Optional: show active account (helpful for first run)
+      # Set project and verify authentication
+      - name: Set GCP Project
+        run: gcloud config set project curamet-onboarding
+
       - name: Show active account
         run: gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
