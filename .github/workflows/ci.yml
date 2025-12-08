@@ -111,8 +111,10 @@ jobs:
         working-directory: terraform
         env:
           DOCKER_BUILDKIT: '1'
+          TF_LOCK_TIMEOUT: '5m'
         run: |
           terraform apply \
             -auto-approve \
             -input=false \
+            -lock-timeout=5m \
             tfplan
