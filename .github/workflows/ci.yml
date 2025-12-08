@@ -41,23 +41,24 @@ jobs:
       # Authenticate to GCP using Workload Identity Federation (WIF)
       # ------------------------
       - name: Authenticate to GCP (WIF)
+        id: auth
         uses: google-github-actions/auth@v1
         with:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
-          export_default_credentials: true
+          token_format: 'access_token'
+          access_token_lifetime: '3600s'
 
       # ------------------------
       # Setup gcloud (uses credentials from the auth step)
       # ------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: curamet-onboarding
 
-      # Set project and verify authentication
-      - name: Set GCP Project
-        run: gcloud config set project curamet-onboarding
-
-      - name: Show active account
+      # Verify authentication
+      - name: Verify GCP Authentication
         run: gcloud auth list --filter=status:ACTIVE --format="value(account)"
 
       # ------------------------
