@@ -52,8 +52,11 @@ jobs:
       # ------------------------
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: curamet-onboarding
+
+      # Set project without triggering token refresh
+      - name: Configure gcloud project
+        run: |
+          gcloud config set project curamet-onboarding --installation
 
       # Verify authentication
       - name: Verify GCP Authentication
