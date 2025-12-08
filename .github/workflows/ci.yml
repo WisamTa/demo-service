@@ -69,7 +69,8 @@ jobs:
 
       - name: Configure Docker for Artifact Registry
         run: |
-          gcloud auth configure-docker europe-docker.pkg.dev
+          gcloud auth configure-docker europe-docker.pkg.dev --quiet
+          docker logout || true
 
       # ========================================
       # 5. TERRAFORM OPERATIONS
@@ -97,6 +98,8 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform
+        env:
+          DOCKER_BUILDKIT: '1'
         run: |
           terraform plan \
             -var-file="environments/dev/terraform.tfvars" \
@@ -106,6 +109,8 @@ jobs:
       - name: Terraform Apply (Main Branch Only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: terraform
+        env:
+          DOCKER_BUILDKIT: '1'
         run: |
           terraform apply \
             -auto-approve \
