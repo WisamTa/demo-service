@@ -1,20 +1,7 @@
-name: CI/CD Pipeline (Non-Main Branches)
+name: CI/CD Pipeline (Non-Main Branches) - DISABLED
 
 on:
-  push:
-    branches: [ "develop", "staging", "test/**", "feature/**" ]
-  pull_request:
-    branches: [ "develop" ]
-  workflow_dispatch:
-    inputs:
-      action:
-        description: 'Choose action: deploy or destroy'
-        required: true
-        default: 'deploy'
-        type: choice
-        options:
-          - deploy
-          - destroy
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -96,7 +83,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       # ========================================
       # 3. SETUP GOOGLE CLOUD TOOLS
@@ -148,7 +136,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       # ========================================
       # 3. SETUP TERRAFORM
