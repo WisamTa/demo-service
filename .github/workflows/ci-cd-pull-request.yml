@@ -3,6 +3,16 @@ name: CI/CD Pipeline (Pull Requests)
 on:
   pull_request:
     branches: [ "main", "develop" ]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Choose action: deploy or destroy'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
 
 permissions:
   contents: read
@@ -201,6 +211,19 @@ jobs:
             -lock=false \
             -out=tfplan \
             -input=false
+
+      - name: Terraform Destroy (Manual Trigger Only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+        working-directory: terraform
+        env:
+          DOCKER_BUILDKIT: '1'
+        run: |
+          echo "⚠️  WARNING: Destroying Terraform infrastructure in sandbox project"
+          terraform destroy \
+            -auto-approve \
+            -input=false \
+            -lock=false \
+            -var-file="environments/dev/terraform.tfvars"
 
       # ========================================
       # 5. SAVE PLAN ARTIFACT

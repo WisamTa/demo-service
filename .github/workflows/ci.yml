@@ -5,6 +5,16 @@ on:
     branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Choose action: deploy or destroy'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
 
 permissions:
   contents: read
@@ -108,7 +118,7 @@ jobs:
             -input=false
 
       - name: Terraform Apply (Main Branch Only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' && (github.event.inputs.action == 'deploy' || github.event_name == 'push')
         working-directory: terraform
         env:
           DOCKER_BUILDKIT: '1'
@@ -118,3 +128,16 @@ jobs:
             -input=false \
             -lock=false \
             tfplan
+
+      - name: Terraform Destroy (Manual Trigger Only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy' && github.ref == 'refs/heads/main'
+        working-directory: terraform
+        env:
+          DOCKER_BUILDKIT: '1'
+        run: |
+          echo "⚠️  WARNING: Destroying Terraform infrastructure on main branch"
+          terraform destroy \
+            -auto-approve \
+            -input=false \
+            -lock=false \
+            -var-file="environments/dev/terraform.tfvars"

@@ -5,6 +5,16 @@ on:
     branches: [ "develop", "staging", "test/**", "feature/**" ]
   pull_request:
     branches: [ "develop" ]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Choose action: deploy or destroy'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
 
 permissions:
   contents: read
@@ -176,6 +186,19 @@ jobs:
             -var-file="environments/dev/terraform.tfvars" \
             -lock=false \
             -input=false
+
+      - name: Terraform Destroy (Manual Trigger Only)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+        working-directory: terraform
+        env:
+          DOCKER_BUILDKIT: '1'
+        run: |
+          echo "⚠️  WARNING: Destroying Terraform infrastructure on ${{ github.ref_name }} branch"
+          terraform destroy \
+            -auto-approve \
+            -input=false \
+            -lock=false \
+            -var-file="environments/dev/terraform.tfvars"
 
       # ========================================
       # 5. COMMENT TERRAFORM PLAN ON PR
